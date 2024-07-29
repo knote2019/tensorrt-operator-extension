@@ -52,13 +52,13 @@ def setup_seed(seed):
 
 
 def export_norm_onnx(input, model):
-    file = "/tmp/sample_customLeakyReLU.onnx"
+    file = "/tmp/model_with_customLeakyReLU.onnx"
     torch.onnx.export(
         model=model,
         args=(input,),
         f=file,
-        input_names=["input0"],
-        output_names=["output0"],
+        input_names=["input"],
+        output_names=["output"],
         opset_version=11)
     print("Finished normal onnx export")
 
