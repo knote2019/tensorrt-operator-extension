@@ -26,11 +26,6 @@
 #include "cuda/cuda_tensor.h"
 #include "cuda/cuda_util.h"
 
-// tensorrt.
-#include <NvInfer.h>
-#include <NvInferPlugin.h>
-#include <NvOnnxParser.h>
-
 // headers.
 #include "tensorrt_engine.h"
 #include "tensorrt_logger.h"
