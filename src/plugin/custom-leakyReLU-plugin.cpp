@@ -1,23 +1,21 @@
-#include "custom-leakyReLU-plugin.hpp"
+#include "custom-leakyReLU-plugin.h"
 
 #include <cstring>
+#include <iostream>
 #include <map>
 #include <utility>
-
-#include "utils.hpp"
 
 /******************************************************************/
 /******************** CustomLeakyReLU的核函数接口部分 ****************/
 /******************************************************************/
 void customLeakyReLUImpl(const float* inputs, float* outputs, float alpha, int nElements, cudaStream_t stream);
 
-using namespace nvinfer1;
-
 namespace custom {
+
 REGISTER_TENSORRT_PLUGIN(CustomLeakyReLUPluginCreator);
 
-PluginFieldCollection CustomLeakyReLUPluginCreator::mFC{};
-std::vector<PluginField> CustomLeakyReLUPluginCreator::mAttrs{};
+nvinfer1::PluginFieldCollection CustomLeakyReLUPluginCreator::mFC{};
+std::vector<nvinfer1::PluginField> CustomLeakyReLUPluginCreator::mAttrs{};
 
 /******************************************************************/
 /*********************CustomLeakyReLUPlugin部分*********************/
@@ -25,7 +23,10 @@ std::vector<PluginField> CustomLeakyReLUPluginCreator::mAttrs{};
 
 CustomLeakyReLUPlugin::CustomLeakyReLUPlugin(std::string name, float alpha) : mName(std::move(name)) {
     mParams.alpha = alpha;
-    if (alpha < 0.0F) LOGE("ERROR detected when initialize plugin");
+    if (alpha < 0.0F) {
+        std::cout << "alpha can't less than .0.0f" << std::endl;
+        std::exit(EXIT_FAILURE);
+    }
 }
 
 CustomLeakyReLUPlugin::CustomLeakyReLUPlugin(std::string name, const void* buffer, size_t length)
@@ -55,18 +56,20 @@ const char* CustomLeakyReLUPlugin::getPluginNamespace() const noexcept {
     return mNamespace.c_str();
 }
 
-DataType CustomLeakyReLUPlugin::getOutputDataType(int32_t index, DataType const* inputTypes,
-                                                  int32_t nbInputs) const noexcept {
+nvinfer1::DataType CustomLeakyReLUPlugin::getOutputDataType(int32_t index, nvinfer1::DataType const* inputTypes,
+                                                            int32_t nbInputs) const noexcept {
     return inputTypes[0];
 }
 
-DimsExprs CustomLeakyReLUPlugin::getOutputDimensions(int32_t outputIndex, const DimsExprs* inputs, int32_t nbInputs,
-                                                     IExprBuilder& exprBuilder) noexcept {
+nvinfer1::DimsExprs CustomLeakyReLUPlugin::getOutputDimensions(int32_t outputIndex, const nvinfer1::DimsExprs* inputs,
+                                                               int32_t nbInputs,
+                                                               nvinfer1::IExprBuilder& exprBuilder) noexcept {
     return inputs[0];
 }
 
-size_t CustomLeakyReLUPlugin::getWorkspaceSize(const PluginTensorDesc* inputs, int32_t nbInputs,
-                                               const PluginTensorDesc* outputs, int32_t nbOutputs) const noexcept {
+size_t CustomLeakyReLUPlugin::getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs, int32_t nbInputs,
+                                               const nvinfer1::PluginTensorDesc* outputs,
+                                               int32_t nbOutputs) const noexcept {
     return 0;
 }
 
@@ -84,9 +87,9 @@ void CustomLeakyReLUPlugin::destroy() noexcept {
     delete this;
 }
 
-int32_t CustomLeakyReLUPlugin::enqueue(const PluginTensorDesc* inputDesc, const PluginTensorDesc* outputDesc,
-                                       const void* const* inputs, void* const* outputs, void* workspace,
-                                       cudaStream_t stream) noexcept {
+int32_t CustomLeakyReLUPlugin::enqueue(const nvinfer1::PluginTensorDesc* inputDesc,
+                                       const nvinfer1::PluginTensorDesc* outputDesc, const void* const* inputs,
+                                       void* const* outputs, void* workspace, cudaStream_t stream) noexcept {
     int nElements = 1;
     for (int i = 0; i < inputDesc[0].dims.nbDims; i++) {
         nElements *= inputDesc[0].dims.d[i];
@@ -98,37 +101,35 @@ int32_t CustomLeakyReLUPlugin::enqueue(const PluginTensorDesc* inputDesc, const 
     return 0;
 }
 
-IPluginV2DynamicExt* CustomLeakyReLUPlugin::clone() const noexcept {
+nvinfer1::IPluginV2DynamicExt* CustomLeakyReLUPlugin::clone() const noexcept {
     try {
         auto p = new CustomLeakyReLUPlugin(mName, &mParams, sizeof(mParams));
         p->setPluginNamespace(mNamespace.c_str());
         return p;
     } catch (std::exception const& e) {
-        LOGE("ERROR detected when clone plugin: %s", e.what());
+        std::cout << "clone failed due to " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
     }
-    return nullptr;
 }
 
-bool CustomLeakyReLUPlugin::supportsFormatCombination(int32_t pos, const PluginTensorDesc* inOut, int32_t nbInputs,
-                                                      int32_t nbOutputs) noexcept {
-    // 检查输入
+bool CustomLeakyReLUPlugin::supportsFormatCombination(int32_t pos, const nvinfer1::PluginTensorDesc* inOut,
+                                                      int32_t nbInputs, int32_t nbOutputs) noexcept {
     if (pos < nbInputs) {
-        return inOut[pos].type == DataType::kFLOAT && inOut[pos].format == TensorFormat::kLINEAR;
+        return inOut[pos].type == nvinfer1::DataType::kFLOAT && inOut[pos].format == nvinfer1::TensorFormat::kLINEAR;
     }
-
-    // 检查输出
     if (pos < nbInputs + nbOutputs) {
-        return inOut[pos].type == DataType::kFLOAT && inOut[pos].format == TensorFormat::kLINEAR;
+        return inOut[pos].type == nvinfer1::DataType::kFLOAT && inOut[pos].format == nvinfer1::TensorFormat::kLINEAR;
     }
+    return false;
 }
 
-void CustomLeakyReLUPlugin::configurePlugin(const DynamicPluginTensorDesc* in, int32_t nbInputs,
-                                            const DynamicPluginTensorDesc* out, int32_t nbOutputs) noexcept {}
+void CustomLeakyReLUPlugin::configurePlugin(const nvinfer1::DynamicPluginTensorDesc* in, int32_t nbInputs,
+                                            const nvinfer1::DynamicPluginTensorDesc* out, int32_t nbOutputs) noexcept {}
 void CustomLeakyReLUPlugin::setPluginNamespace(const char* pluginNamespace) noexcept {
     mNamespace = pluginNamespace;
 }
 void CustomLeakyReLUPlugin::attachToContext(cudnnContext* contextCudnn, cublasContext* contextCublas,
-                                            IGpuAllocator* gpuAllocator) noexcept {}
+                                            nvinfer1::IGpuAllocator* gpuAllocator) noexcept {}
 void CustomLeakyReLUPlugin::detachFromContext() noexcept {}
 
 /******************************************************************/
@@ -136,7 +137,7 @@ void CustomLeakyReLUPlugin::detachFromContext() noexcept {}
 /******************************************************************/
 
 CustomLeakyReLUPluginCreator::CustomLeakyReLUPluginCreator() {
-    mAttrs.emplace_back(PluginField("alpha", nullptr, PluginFieldType::kFLOAT32, 1));
+    mAttrs.emplace_back("alpha", nullptr, nvinfer1::PluginFieldType::kFLOAT32, 1);
     mFC.nbFields = mAttrs.size();
     mFC.fields = mAttrs.data();
 }
@@ -155,38 +156,38 @@ const char* CustomLeakyReLUPluginCreator::getPluginNamespace() const noexcept {
     return mNamespace.c_str();
 }
 
-IPluginV2DynamicExt* CustomLeakyReLUPluginCreator::createPlugin(const char* name,
-                                                                const PluginFieldCollection* fc) noexcept {
+nvinfer1::IPluginV2DynamicExt* CustomLeakyReLUPluginCreator::createPlugin(
+    const char* name, const nvinfer1::PluginFieldCollection* fc) noexcept {
     try {
         float alpha = 0.0;
         for (int i = 0; i < fc->nbFields; ++i) {
-            if (std::string(fc->fields[i].name) == "alpha" && fc->fields[i].type == PluginFieldType::kFLOAT32) {
+            if (std::string(fc->fields[i].name) == "alpha" &&
+                fc->fields[i].type == nvinfer1::PluginFieldType::kFLOAT32) {
                 alpha = *(static_cast<const float*>(fc->fields[i].data));
             }
         }
-
         return new CustomLeakyReLUPlugin(name, alpha);
     } catch (std::exception const& e) {
-        LOGE("ERROR detected when create plugin: %s", e.what());
+        std::cout << " create plugin failed due to " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
     }
-    return nullptr;
 }
 
-IPluginV2DynamicExt* CustomLeakyReLUPluginCreator::deserializePlugin(const char* name, const void* serialData,
-                                                                     size_t serialLength) noexcept {
+nvinfer1::IPluginV2DynamicExt* CustomLeakyReLUPluginCreator::deserializePlugin(const char* name, const void* serialData,
+                                                                               size_t serialLength) noexcept {
     try {
         return new CustomLeakyReLUPlugin(name, serialData, serialLength);
     } catch (std::exception const& e) {
-        LOGE("ERROR detected when deserialize plugin: %s", e.what());
+        std::cout << " deserialize plugin failed due to " << e.what() << std::endl;
+        std::exit(EXIT_FAILURE);
     }
-    return nullptr;
 }
 
 void CustomLeakyReLUPluginCreator::setPluginNamespace(const char* pluginNamespace) noexcept {
     mNamespace = pluginNamespace;
 }
 
-const PluginFieldCollection* CustomLeakyReLUPluginCreator::getFieldNames() noexcept {
+const nvinfer1::PluginFieldCollection* CustomLeakyReLUPluginCreator::getFieldNames() noexcept {
     return &mFC;
 }
 

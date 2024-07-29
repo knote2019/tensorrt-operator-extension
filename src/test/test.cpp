@@ -1,9 +1,8 @@
 #include "common.h"
 
-
-TEST(tensorrt, resnet50) {
-    std::string model_path = "/stores/pytorch-models/tensorrt-operator-extension/sample_customLeakyReLU.onnx";
-    std::string engine_path = "/tmp/sample_customLeakyReLU.engine";
+TEST(tensorrt, operator_extension) {
+    std::string model_path = "/stores/pytorch-models/tensorrt-operator-extension/model_with_customLeakyReLU.onnx";
+    std::string engine_path = "/tmp/model_with_customLeakyReLU.engine";
 
     if (!TensorRTUtil::check_file_exist(engine_path)) {
         auto engine = TensorRTEngine(model_path);
@@ -12,9 +11,7 @@ TEST(tensorrt, resnet50) {
         if (input->getDimensions().d[0] == -1) {
             // set for dynamic batch size.
             nvinfer1::IOptimizationProfile* profile = engine.builder->createOptimizationProfile();
-            int c = 1;
-            int h = 5;
-            int w = 5;
+            int c = 1, h = 5, w = 5;
             profile->setDimensions(input->getName(), nvinfer1::OptProfileSelector::kMIN,
                                    nvinfer1::Dims{4, {1, c, h, w}});
             profile->setDimensions(input->getName(), nvinfer1::OptProfileSelector::kOPT,
@@ -34,54 +31,24 @@ TEST(tensorrt, resnet50) {
 
     // set input dims.
     context->setInputShape("input", nvinfer1::Dims{4, {1, 1, 5, 5}});
+    TensorRTUtil::print_dims("input_dims", context->getTensorShape("input"));
+    TensorRTUtil::print_dims("output_dims", context->getTensorShape("output"));
 
-    auto input_dims = context->getTensorShape("input");
-    auto output_dims = context->getTensorShape("output");
-    TensorRTUtil::print_dims("input_dims", input_dims);
-    TensorRTUtil::print_dims("output_dims", output_dims);
+    auto input = cuda::tensor<float>(1, 1, 5, 5);
+    auto output = cuda::tensor<float>(1, 3, 5, 5);
 
-    size_t input_length = TensorRTUtil::calculate_dims_length(input_dims);
-    size_t output_length = TensorRTUtil::calculate_dims_length(output_dims);
-    std::cout << "input_length = " << input_length << std::endl;
-    std::cout << "output_length = " << output_length << std::endl;
-
-    auto input_gpu = cuda::vector<float>(input_length);
-    auto output_gpu = cuda::vector<float>(output_length);
-
-    void* bindings[] = {input_gpu.GPU(), output_gpu.GPU()};
-
-    // -----------------------------------------------------------------------------------------------------------------
-    // input.
-    std::string image_path = TensorRTUtil::root_path() + "src/image/flamingo/ILSVRC2012_val_00000356.JPEG";
-    std::cout << image_path << std::endl;
-
-    cv::Size shape{224, 224};
-    cv::Scalar mean{0.485, 0.456, 0.406};
-    cv::Scalar std{0.229, 0.224, 0.225};
-
-    cv::Mat image = cv::imread(image_path);
-    cv::Mat input = TensorRTUtil::pre_process(image, shape, mean, std);
-    auto input_cpu = std::vector<float>(input_length);
-    input_cpu.assign(input.begin<float>(), input.end<float>());
-    input_gpu.set(&input_cpu);
+    // set input.
+    input.init_with_values({0.7576, 0.2793, 0.4031, 0.7347, 0.0293, 0.7999, 0.3971, 0.7544, 0.5695,
+                            0.4388, 0.6387, 0.5247, 0.6826, 0.3051, 0.4635, 0.4550, 0.5725, 0.4980,
+                            0.9371, 0.6556, 0.3138, 0.1980, 0.4162, 0.2843, 0.3398});
+    input.show();
 
     // run.
-    context->executeV2(bindings);
+    auto bindings = std::vector<void*>();
+    bindings.emplace_back(input.GPU());
+    bindings.emplace_back(output.GPU());
+    context->executeV2(bindings.data());
 
-    // output.
-    auto output_cpu = std::vector<float>(output_length);
-    output_gpu.get(&output_cpu);
-
-    unsigned int class_id = TensorRTUtil::get_max_value_index(&output_cpu);
-    std::string class_name = TensorRTUtil::get_imagenet_class_name(class_id);
-
-    std::cout << "class_id = " << class_id << std::endl;
-    std::cout << "class_name = " << class_name << std::endl;
-
-    TensorRTUtil::put_text(image, class_name);
-
-    // show image.
-    cv::imshow("image", image);
-    cv::waitKey(0);
-    std::cout << std::endl;
+    // check output.
+    output.show();
 }
