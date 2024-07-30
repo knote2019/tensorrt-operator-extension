@@ -51,3 +51,7 @@
         0.070280	    0.656816	    0.306425	    0.633001	    0.382684	    0.164414	    0.376826	    0.399926	
         0.399028	    0.395284	    0.242954	
     <<< <<< <<<
+
+### reference.
+https://github.com/Phoenix8215/Learn-TensorRT-Plugin-From-Scratch
+https://zhuanlan.zhihu.com/p/706168847
